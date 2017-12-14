@@ -121,7 +121,22 @@ RUN set -ex; \
 	[ "$(which bash)" = '/usr/local/bin/bash' ]; \
 	bash --version; \
 	[ "$(bash -c 'echo "${BASH_VERSION%%[^0-9.]*}"')" = "$_BASH_VERSION.$_BASH_LATEST_PATCH" ];
+RUN set -xe; ln -s /usr/local/bin/bash /bin/bash
 
 COPY docker-entrypoint.sh /usr/local/bin/
-ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["bash"]
+
+# Install apache
+# Taken from https://github.com/smebberson/docker-alpine/blob/master/alpine-apache/Dockerfile
+# Credit to Scott Mebberson (https://github.com/smebberson)
+RUN set -xe; \
+    apk add --no-cache apache2 apache2-utils; \
+    mkdir -p /run/apache2/; \
+    sed -i 's,#LoadModule cgid_module modules/mod_cgid.so,LoadModule cgid_module modules/mod_cgid.so,g' /etc/apache2/httpd.conf; \
+    sed -i 's,#LoadModule cgi_module modules/mod_cgi.so,LoadModule cgi_module modules/mod_cgi.so,g' /etc/apache2/httpd.conf;
+
+COPY vulnerable /var/www/localhost/cgi-bin/
+RUN chmod 755 /var/www/localhost/cgi-bin/vulnerable
+
+# Expose the ports for apache
+EXPOSE 80 443
+CMD ["apachectl", "-DFOREGROUND"]
